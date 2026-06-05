@@ -22,7 +22,8 @@ quadrotor_msgs::Px4ctrlDebug
 LinearControl::calculateControl(const Desired_State_t &des,
     const Odom_Data_t &odom,
     const Imu_Data_t &imu, 
-    Controller_Output_t &u)
+    Controller_Output_t &u  // 引用传递，在函数里修改 u 的值后，外面调用这个函数的地方就能得到修改后的 u
+  )
 {
   /* WRITE YOUR CODE HERE */
       //compute disired acceleration
@@ -142,6 +143,7 @@ LinearControl::estimateThrustModel(
   return false;
 }
 
+// 重力加速度 / 遥控器油门在悬停时的百分比 作为初始的推力-加速度映射关系，后续会通过estimateThrustModel函数在线更新
 void 
 LinearControl::resetThrustMapping(void)
 {

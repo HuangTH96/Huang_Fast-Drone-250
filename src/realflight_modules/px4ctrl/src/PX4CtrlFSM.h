@@ -30,6 +30,7 @@ class PX4CtrlFSM
 public:
 	Parameter_t &param;
 
+	// 定义在 input.h 中
 	RC_Data_t rc_data;
 	State_Data_t state_data;
 	ExtendedState_Data_t extended_state_data;
@@ -50,7 +51,7 @@ public:
 
 	quadrotor_msgs::Px4ctrlDebug debug_msg; //debug
 
-	Eigen::Vector4d hover_pose;
+	Eigen::Vector4d hover_pose;				// hover_pose(0~2) is XYZ, hover_pose(3) is yaw. 由set_hov_with_odom()和set_hov_with_rc()函数设置
 	ros::Time last_set_hover_pose_time;
 
 	enum State_t
