@@ -43,7 +43,7 @@ public:
 	LinearControl &controller;
 
 	ros::Publisher traj_start_trigger_pub;
-	ros::Publisher ctrl_FCU_pub;
+	ros::Publisher ctrl_FCU_pub;	// 发布节点，发送控制指令给FCU
 	ros::Publisher debug_pub; //debug
 	ros::ServiceClient set_FCU_mode_srv;
 	ros::ServiceClient arming_client_srv;

@@ -3,7 +3,7 @@
 using namespace std;
 
 
-
+// 从四元数中提取偏航角
 double LinearControl::fromQuaternion2yaw(Eigen::Quaterniond q)
 {
   double yaw = atan2(2 * (q.x()*q.y() + q.w()*q.z()), q.w()*q.w() + q.x()*q.x() - q.y()*q.y() - q.z()*q.z());
@@ -17,6 +17,9 @@ LinearControl::LinearControl(Parameter_t &param) : param_(param)
 
 /* 
   compute u.thrust and u.q, controller gains and other parameters are in param_ 
+  
+  - param_ 定义在PX4CtrlParam.h里
+  - 替换了PX4中的位置P和速度PID
 */
 quadrotor_msgs::Px4ctrlDebug
 LinearControl::calculateControl(const Desired_State_t &des,
@@ -26,30 +29,44 @@ LinearControl::calculateControl(const Desired_State_t &des,
   )
 {
   /* WRITE YOUR CODE HERE */
-      //compute disired acceleration
-      Eigen::Vector3d des_acc(0.0, 0.0, 0.0);
-      Eigen::Vector3d Kp,Kv;
-      Kp << param_.gain.Kp0, param_.gain.Kp1, param_.gain.Kp2;
-      Kv << param_.gain.Kv0, param_.gain.Kv1, param_.gain.Kv2;
-      des_acc = des.a + Kv.asDiagonal() * (des.v - odom.v) + Kp.asDiagonal() * (des.p - odom.p);
-      des_acc += Eigen::Vector3d(0,0,param_.gra);
+  //compute disired acceleration
+  Eigen::Vector3d des_acc(0.0, 0.0, 0.0);
+  Eigen::Vector3d Kp,Kv;
+  Kp << param_.gain.Kp0, param_.gain.Kp1, param_.gain.Kp2;
+  Kv << param_.gain.Kv0, param_.gain.Kv1, param_.gain.Kv2;
 
-      u.thrust = computeDesiredCollectiveThrustSignal(des_acc);
-      double roll,pitch,yaw,yaw_imu;
-      double yaw_odom = fromQuaternion2yaw(odom.q);
-      double sin = std::sin(yaw_odom);
-      double cos = std::cos(yaw_odom);
-      roll = (des_acc(0) * sin - des_acc(1) * cos )/ param_.gra;
-      pitch = (des_acc(0) * cos + des_acc(1) * sin )/ param_.gra;
-      // yaw = fromQuaternion2yaw(des.q);
-      yaw_imu = fromQuaternion2yaw(imu.q);
-      // Eigen::Quaterniond q = Eigen::AngleAxisd(yaw,Eigen::Vector3d::UnitZ())
-      //   * Eigen::AngleAxisd(roll,Eigen::Vector3d::UnitX())
-      //   * Eigen::AngleAxisd(pitch,Eigen::Vector3d::UnitY());
-      Eigen::Quaterniond q = Eigen::AngleAxisd(des.yaw,Eigen::Vector3d::UnitZ())
-        * Eigen::AngleAxisd(pitch,Eigen::Vector3d::UnitY())
-        * Eigen::AngleAxisd(roll,Eigen::Vector3d::UnitX());
-      u.q = imu.q * odom.q.inverse() * q;
+  // 计算期望加速度 = des.a + Kv * (des.v - odom.v) + Kp * (des.p - odom.p) + 重力补偿项
+  des_acc = des.a + Kv.asDiagonal() * (des.v - odom.v) + Kp.asDiagonal() * (des.p - odom.p);
+  des_acc += Eigen::Vector3d(0,0,param_.gra);
+
+  // 将期望加速度转换成推力
+  u.thrust = computeDesiredCollectiveThrustSignal(des_acc);
+  
+  double roll,pitch,yaw,yaw_imu;
+  double yaw_odom = fromQuaternion2yaw(odom.q);
+  // 将期望加速度转化成期望roll和pitch
+  // 因为期望加速度是在世界坐标系，roll/pitch在机体坐标系，两者之间差了一个yaw，所以提取roll和pitch的时候需要用到yaw_odom
+  double sin = std::sin(yaw_odom);
+  double cos = std::cos(yaw_odom);
+  roll = (des_acc(0) * sin - des_acc(1) * cos )/ param_.gra;
+  pitch = (des_acc(0) * cos + des_acc(1) * sin )/ param_.gra;
+  // yaw = fromQuaternion2yaw(des.q);
+  // 
+  yaw_imu = fromQuaternion2yaw(imu.q);  
+  // Eigen::Quaterniond q = Eigen::AngleAxisd(yaw,Eigen::Vector3d::UnitZ())
+  //   * Eigen::AngleAxisd(roll,Eigen::Vector3d::UnitX())
+  //   * Eigen::AngleAxisd(pitch,Eigen::Vector3d::UnitY());
+  
+  // 构造期望姿态四元数，从右往左读：先绕x轴转roll，再绕y轴转pitch，最后绕z轴转yaw，三个AngleAxised相乘就是把三次旋转合成一个四元数
+  // 表示在世界坐标系（odom坐标系）下的期望姿态
+  Eigen::Quaterniond q = Eigen::AngleAxisd(des.yaw,Eigen::Vector3d::UnitZ())
+    * Eigen::AngleAxisd(pitch,Eigen::Vector3d::UnitY())
+    * Eigen::AngleAxisd(roll,Eigen::Vector3d::UnitX());
+  
+  // 坐标系校正：解决odom坐标系和IMU坐标系之间的漂移问题
+  // odom.q * delta_q = q，也就是说 相对于odom.q的旋转增量 delta_q = odom.q.inverse() * q
+  // 因为FCU是基于IMU坐标系控制的，所以需要将 delta_q 叠加到IMU坐标系上，得到相对于IMU坐标系的期望姿态 u.q = imu.q * delta_q = imu.q * odom.q.inverse() * q
+  u.q = imu.q * odom.q.inverse() * q;
 
 
   /* WRITE YOUR CODE HERE */
