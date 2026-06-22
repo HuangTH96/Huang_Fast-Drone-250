@@ -221,7 +221,8 @@ void PX4CtrlFSM::process()
 	}
 
 	case AUTO_TAKEOFF:
-	{
+	{	
+		// 预转状态，维持MOTORS_SPEEDUP_TIME
 		if ((now_time - takeoff_land.toggle_takeoff_land_time).toSec() < AutoTakeoffLand_t::MOTORS_SPEEDUP_TIME) // Wait for several seconds to warn prople.
 		{
 			des = get_rotor_speed_up_des(now_time);
@@ -420,6 +421,8 @@ Desired_State_t PX4CtrlFSM::get_cmd_des()
 	return des;
 }
 
+// 起飞前电机预转状态的期望生成器
+// 起飞时不能让电机从0直接调到悬停油门，需要缓慢加速
 Desired_State_t PX4CtrlFSM::get_rotor_speed_up_des(const ros::Time now)
 {
 	double delta_t = (now - takeoff_land.toggle_takeoff_land_time).toSec();
