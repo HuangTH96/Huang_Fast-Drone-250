@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
     LinearControl controller(param);
     PX4CtrlFSM fsm(param, controller);
 
+    // 订阅来自PX4中的飞行状态、来自VINS的里程计、来自RC的指令、来自IMU的原始数据、电池信息
     ros::Subscriber state_sub =
         nh.subscribe<mavros_msgs::State>("/mavros/state",
                                          10,
@@ -69,6 +70,7 @@ int main(int argc, char *argv[])
                                                 ros::VoidConstPtr(),
                                                 ros::TransportHints().tcpNoDelay());
 
+    // 监听ros topic: /takeoff_land 的消息，在 TakeoffLand.msg 自定义了该消息类型
     ros::Subscriber takeoff_land_sub =
         nh.subscribe<quadrotor_msgs::TakeoffLand>("takeoff_land",
                                                   100,
@@ -76,7 +78,8 @@ int main(int argc, char *argv[])
                                                   ros::VoidConstPtr(),
                                                   ros::TransportHints().tcpNoDelay());
 
-    fsm.ctrl_FCU_pub = nh.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 10);
+    // 发布控制命令给PX4
+    fsm.ctrl_FCU_pub = nh.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 10);  // 核心输出：姿态四元数 + 归一化油门，发给MAVROS转PX4
     fsm.traj_start_trigger_pub = nh.advertise<geometry_msgs::PoseStamped>("/traj_start_trigger", 10);
 
     fsm.debug_pub = nh.advertise<quadrotor_msgs::Px4ctrlDebug>("/debugPx4ctrl", 10); // debug
@@ -116,10 +119,10 @@ int main(int argc, char *argv[])
     }
 
     ros::Rate r(param.ctrl_freq_max);
-    while (ros::ok())
+    while (ros::ok())   // 主循环
     {
         r.sleep();
-        ros::spinOnce();
+        ros::spinOnce();    // 处理所有回调，更新所有数据
         fsm.process(); // We DO NOT rely on feedback as trigger, since there is no significant performance difference through our test.
     }
 

@@ -99,6 +99,7 @@ public:
   void feed(mavros_msgs::ExtendedStateConstPtr pMsg);
 };
 
+// 来自ego-planner
 class Command_Data_t
 {
 public:
@@ -141,6 +142,8 @@ public:
   quadrotor_msgs::TakeoffLand msg;
   ros::Time rcv_stamp;
 
+  // 监听ros topic: /takeoff_land 的消息，来更新这个类的成员变量。
+  // 当收到消息时，triggered被置为true，并且根据消息内容更新takeoff_land_cmd（起飞还是降落）。
   Takeoff_Land_Data_t();
   void feed(quadrotor_msgs::TakeoffLandConstPtr pMsg);
 };
